@@ -27,34 +27,34 @@ namespace Rock.Model
     /// </summary>
     public partial class AttendanceCodeService
     {
-        private static readonly Object _obj = new object();
-        private static Random _random = new Random( Guid.NewGuid().GetHashCode() );
-        private static DateTime? _today = null;
-        private static HashSet<string> _todaysCodes = null;
+        private static readonly object _Obj = new object();
+        private static readonly Random _Random = new Random( Guid.NewGuid().GetHashCode() );
+        private static DateTime? _todaysDate = null;
+        private static HashSet<string> _todaysUsedCodes = null;
 
         /// <summary>
         /// An array of characters that can be used as a part of  <see cref="Rock.Model.AttendanceCode">AttendanceCodes</see>
         /// </summary>
-        private static char[] codeCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z', '2', '4', '5', '6', '7', '8', '9' };
+        private static readonly char[] _CodeCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z', '2', '4', '5', '6', '7', '8', '9' };
 
         /// <summary>
         /// An array of alpha characters that can be used as a part of  <see cref="Rock.Model.AttendanceCode">AttendanceCodes</see>
         /// </summary>
-        private static char[] alphaCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z' };
+        private static readonly char[] _AlphaCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z' };
 
         /// <summary>
         /// An array of numeric characters that can be used as a part of  <see cref="Rock.Model.AttendanceCode">AttendanceCodes</see>
         /// </summary>
-        private static char[] numericCharacters = new char[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+        private static readonly char[] _NumericCharacters = new char[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
 
         /// <summary>
         /// A list of <see cref="System.String"/> values that are not allowable as attendance codes.
         /// </summary>
-        public static readonly List<string> noGood = new List<string> {
+        public static readonly List<string> _NoGood = new List<string> {
             "4NL", "4SS", "5CK", "5HT", "5LT", "5NM", "5TD", "5XX", "666", "BCH", "CLT", "CNT", "D4M", "D5H", "DCK", "DMN", "DSH", "F4G", "FCK", "FGT", "G4Y", "GZZ", "H8R",
             "JNK", "JZZ", "KKK", "KLT", "KNT", "L5D", "LCK", "LSD", "MFF", "MLF", "ND5", "NDS", "NDZ", "NGR", "P55", "PCP", "PHC", "PHK", "PHQ", "PM5", "PMS", "PN5", "PNS",
-            "PRC", "PRK", "PRN", "PRQ", "PSS", "RCK", "SCK", "S3X", "SHT", "SLT", "SNM", "STD", "SXX", "THC", "V4G", "WCK", "XTC", "XXX", "911",
-            "1XL", "2XL", "3XL", "4XL", "5XL", "6XL", "7XL", "8XL", "9XL", "XXL"
+            "PRC", "PRK", "PRN", "PRQ", "PSS", "RCK", "SCK", "S3X", "SHT", "SLT", "SNM", "STD", "SXX", "THC", "V4G", "WCK", "XTC", "XXX", "911", "1XL", "2XL", "3XL", "4XL",
+            "5XL", "6XL", "7XL", "8XL", "9XL", "XXL"
         };
 
         /// <summary>
@@ -95,18 +95,18 @@ namespace Rock.Model
         /// <returns></returns>
         public static AttendanceCode GetNew( int alphaNumericLength, int alphaLength, int numericLength, bool isRandomized )
         {
-            lock ( _obj )
+            lock ( _Obj )
             {
                 using ( var rockContext = new Rock.Data.RockContext() )
                 {
                     var service = new AttendanceCodeService( rockContext );
 
                     DateTime today = RockDateTime.Today;
-                    if ( _todaysCodes == null || !_today.HasValue || !_today.Value.Equals( today ) )
+                    if ( _todaysUsedCodes == null || !_todaysDate.HasValue || !_todaysDate.Value.Equals( today ) )
                     {
-                        _today = today;
+                        _todaysDate = today;
                         DateTime tomorrow = today.AddDays( 1 );
-                        _todaysCodes = new HashSet<string>(service.Queryable().AsNoTracking()
+                        _todaysUsedCodes = new HashSet<string>(service.Queryable().AsNoTracking()
                             .Where( c => c.IssueDateTime >= today && c.IssueDateTime < tomorrow )
                             .Select( c => c.Code )
                             .ToList());
@@ -120,9 +120,10 @@ namespace Rock.Model
                         alphaNumericCode =
                             ( alphaNumericLength > 0 ? GenerateRandomCode( alphaNumericLength ) : string.Empty ) +
                             ( alphaLength > 0 ? GenerateRandomAlphaCode( alphaLength ) : string.Empty );
-                        while ( noGood.Any( s => alphaNumericCode.Contains( s ) ) || _todaysCodes.Contains( alphaNumericCode ) )
+                        while ( _NoGood.Any( s => alphaNumericCode.Contains( s ) ) || _todaysUsedCodes.Contains( alphaNumericCode ) )
                         {
                             attempts++;
+
                             // We're only going to attempt this 1 million times...
                             // Interestingly, even when this code approaches the maximum number of possible combinations
                             // it still typically takes less than 5000 attempts. However, if the number of
@@ -132,21 +133,23 @@ namespace Rock.Model
                             {
                                 throw new TimeoutException( "Too many attempts to create a unique attendance code.  There is almost certainly a check-in system 'Security Code Length' configuration problem." );
                             }
+
                             alphaNumericCode =
                                 ( alphaNumericLength > 0 ? GenerateRandomCode( alphaNumericLength ) : string.Empty ) +
                                 ( alphaLength > 0 ? GenerateRandomAlphaCode( alphaLength ) : string.Empty );
                         }
                     }
+
                     string numericCode = string.Empty;
                     if ( numericLength > 0 )
                     {
                         int codeLen = alphaNumericLength + alphaLength + numericLength;
-                        var lastCode = _todaysCodes.Where( c => c.Length == codeLen ).OrderBy( c => c.Substring( alphaNumericLength + alphaLength ) ).LastOrDefault();
+                        var lastCode = _todaysUsedCodes.Where( c => c.Length == codeLen ).OrderBy( c => c.Substring( alphaNumericLength + alphaLength ) ).LastOrDefault();
                         numericCode = GetNextNumericCodeAsString( alphaNumericLength, alphaLength, numericLength, isRandomized, lastCode );
                     }
 
                     string code = alphaNumericCode + numericCode;
-                    _todaysCodes.Add( code );
+                    _todaysUsedCodes.Add( code );
 
                     var attendanceCode = new AttendanceCode();
                     attendanceCode.IssueDateTime = RockDateTime.Now;
@@ -177,15 +180,18 @@ namespace Rock.Model
             if ( isRandomized )
             {
                 numericCode = GenerateRandomNumericCode( numericLength );
+
                 // #2877, use contains to prevent leading zeros bypassing a match for 666
-                while ( noGood.Any( s => numericCode.Contains( s ) ) || _todaysCodes.Any( c => c.EndsWith( numericCode ) ) )
+                while ( _NoGood.Any( s => numericCode.Contains( s ) ) || _todaysUsedCodes.Any( c => c.EndsWith( numericCode ) ) )
                 {
                     attempts++;
+
                     // We're only going to attempt this a million times...
                     if ( attempts > 1000000 )
                     {
                         throw new TimeoutException( "Too many attempts to create a unique attendance code.  There is almost certainly a check-in system 'Security Code Length' configuration problem." );
                     }
+
                     numericCode = GenerateRandomNumericCode( numericLength );
                 }
             }
@@ -222,10 +228,10 @@ namespace Rock.Model
         {
             StringBuilder sb = new StringBuilder();
 
-            int poolSize = codeCharacters.Length;
+            int poolSize = _CodeCharacters.Length;
             for ( int i = 0; i < length; i++ )
             {
-                sb.Append( codeCharacters[_random.Next( poolSize )] );
+                sb.Append( _CodeCharacters[_Random.Next( poolSize )] );
             }
 
             return sb.ToString();
@@ -240,10 +246,10 @@ namespace Rock.Model
         {
             StringBuilder sb = new StringBuilder();
 
-            int poolSize = alphaCharacters.Length;
+            int poolSize = _AlphaCharacters.Length;
             for ( int i = 0; i < length; i++ )
             {
-                sb.Append( alphaCharacters[_random.Next( poolSize )] );
+                sb.Append( _AlphaCharacters[_Random.Next( poolSize )] );
             }
 
             return sb.ToString();
@@ -258,10 +264,10 @@ namespace Rock.Model
         {
             StringBuilder sb = new StringBuilder();
 
-            int poolSize = numericCharacters.Length;
+            int poolSize = _NumericCharacters.Length;
             for ( int i = 0; i < length; i++ )
             {
-                sb.Append( numericCharacters[_random.Next( poolSize )] );
+                sb.Append( _NumericCharacters[_Random.Next( poolSize )] );
             }
 
             return sb.ToString();
@@ -272,9 +278,9 @@ namespace Rock.Model
         /// </summary>
         public static void FlushTodaysCodes()
         {
-            lock ( _obj )
+            lock ( _Obj )
             {
-                _todaysCodes = null;
+                _todaysUsedCodes = null;
             }
         }
     }
