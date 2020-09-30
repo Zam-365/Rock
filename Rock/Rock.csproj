@@ -663,6 +663,7 @@
     <Compile Include="Logging\RockLoggerSerilog.cs" />
     <Compile Include="Logging\RockLogger.cs" />
     <Compile Include="Logging\RockLogConfiguration.cs" />
+    <Compile Include="Web\UI\Controls\Grid\PersonProfileLinkField.cs" />
     <Compile Include="Web\UI\Controls\Pickers\CacheabilityPicker.cs" />
     <Compile Include="Web\UI\Controls\Pickers\IntervalPicker.cs" />
     <Compile Include="Plugin\HotFixes\118_FixFailedPaymentCommunicationTemplate.cs" />
