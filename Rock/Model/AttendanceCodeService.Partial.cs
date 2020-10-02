@@ -97,7 +97,7 @@ namespace Rock.Model
         /// </summary>
         /// <param name="alphaLength">A <see cref="System.Int32"/> representing the length of the (alpha) portion of the code.</param>
         /// <param name="numericLength">A <see cref="System.Int32"/> representing the length of the (digit) portion of the code.</param>
-        /// <param name="isRandomized">A <see cref="System.Boolean"/> that controls whether or not the AttendanceCodes should be generated randomly or in order (starting from the smallest).</param>
+        /// <param name="isRandomized">A <see cref="System.Boolean"/> that controls whether or not the AttendanceCodes should be generated randomly or in order (starting from the smallest). Only effect the numeric code.</param>
         /// <returns>
         /// A new <see cref="Rock.Model.AttendanceCode" />
         /// </returns>
@@ -107,89 +107,17 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Gets the new.
+        /// Returns a new <see cref="Rock.Model.AttendanceCode" />. The code will contain the specified number of alphanumeric characters,
+        /// followed by the alpha characters and then the specified number of numeric characters. The character sequence will not repeat for "today".
+        /// Also the numeric character sequence will not repeat for "today". In both cases ensure that you're using a sufficient length for each
+        /// otherwise there will not be enough possible codes.
+        /// Also note as the issued numeric codes reaches the maximum (from the set of possible), it will take longer and
+        /// longer to find an unused number. So specifing a larger number of characters then needed will increase performance.
         /// </summary>
-        /// <param name="alphaNumericLength">Length of the alpha numeric.</param>
-        /// <param name="alphaLength">Length of the alpha.</param>
-        /// <param name="numericLength">Length of the numeric.</param>
-        /// <param name="isRandomized">if set to <c>true</c> [is randomized].</param>
-        /// <returns></returns>
-        public static AttendanceCode GetNewOld( int alphaNumericLength, int alphaLength, int numericLength, bool isRandomized )
-        {
-            lock ( _Obj )
-            {
-                using ( var rockContext = new Rock.Data.RockContext() )
-                {
-                    var service = new AttendanceCodeService( rockContext );
-
-                    DateTime today = RockDateTime.Today;
-                    if ( _todaysUsedCodes == null || !_todaysDate.HasValue || !_todaysDate.Value.Equals( today ) )
-                    {
-                        _todaysDate = today;
-                        DateTime tomorrow = today.AddDays( 1 );
-                        _todaysUsedCodes = new HashSet<string>(service.Queryable().AsNoTracking()
-                            .Where( c => c.IssueDateTime >= today && c.IssueDateTime < tomorrow )
-                            .Select( c => c.Code )
-                            .ToList());
-                    }
-
-                    // Find a good alphanumeric code prefix
-                    string alphaNumericCode = string.Empty;
-                    int attempts = 0;
-                    if ( alphaNumericLength > 0 || alphaLength > 0 )
-                    {
-                        alphaNumericCode =
-                            ( alphaNumericLength > 0 ? GenerateRandomCode( alphaNumericLength ) : string.Empty ) +
-                            ( alphaLength > 0 ? GenerateRandomAlphaCode( alphaLength ) : string.Empty );
-                        while ( noGood.Any( s => alphaNumericCode.Contains( s ) ) || _todaysUsedCodes.Contains( alphaNumericCode ) )
-                        {
-                            attempts++;
-
-                            // We're only going to attempt this 1 million times...
-                            // Interestingly, even when this code approaches the maximum number of possible combinations
-                            // it still typically takes less than 5000 attempts. However, if the number of
-                            // attempts jumps over 10,000 there is almost certainly a problem with someone's
-                            // check-in code configuration so we're going to stop after a million attempts.
-                            if ( attempts > 1000000 )
-                            {
-                                throw new TimeoutException( "Too many attempts to create a unique attendance code.  There is almost certainly a check-in system 'Security Code Length' configuration problem." );
-                            }
-
-                            alphaNumericCode =
-                                ( alphaNumericLength > 0 ? GenerateRandomCode( alphaNumericLength ) : string.Empty ) +
-                                ( alphaLength > 0 ? GenerateRandomAlphaCode( alphaLength ) : string.Empty );
-                        }
-                    }
-
-                    string numericCode = string.Empty;
-                    if ( numericLength > 0 )
-                    {
-                        int codeLen = alphaNumericLength + alphaLength + numericLength;
-                        var lastCode = _todaysUsedCodes.Where( c => c.Length == codeLen ).OrderBy( c => c.Substring( alphaNumericLength + alphaLength ) ).LastOrDefault();
-                        numericCode = GetNextNumericCodeAsString( alphaNumericLength, alphaLength, numericLength, isRandomized, lastCode );
-                    }
-
-                    string code = alphaNumericCode + numericCode;
-                    _todaysUsedCodes.Add( code );
-
-                    var attendanceCode = new AttendanceCode();
-                    attendanceCode.IssueDateTime = RockDateTime.Now;
-                    attendanceCode.Code = code;
-                    service.Add( attendanceCode );
-                    rockContext.SaveChanges();
-
-                    return attendanceCode;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the new.
-        /// </summary>
-        /// <param name="alphaNumericLength">Length of the alpha numeric.</param>
-        /// <param name="alphaLength">Length of the alpha.</param>
-        /// <param name="numericLength">Length of the numeric.</param>
-        /// <param name="isRandomized">if set to <c>true</c> [is randomized].</param>
+        /// <param name="alphaNumericLength">A <see cref="System.Int32"/> representing the length for a mixed alphanumberic code.</param>
+        /// <param name="alphaLength">A <see cref="System.Int32"/> representing the length of the (alpha) portion of the code.</param>
+        /// <param name="numericLength">A <see cref="System.Int32"/> representing the length of the (digit) portion of the code.</param>
+        /// <param name="isRandomized">A <see cref="System.Boolean"/> that controls whether or not the AttendanceCodes should be generated randomly or in order (starting from the smallest). Only effect the numeric code.</param>
         /// <returns></returns>
         public static AttendanceCode GetNew( int alphaNumericLength, int alphaLength, int numericLength, bool isRandomized )
         {
@@ -212,6 +140,7 @@ namespace Rock.Model
                     string alphaCode = string.Empty;
                     string numericCode = string.Empty;
                     string code = string.Empty;
+                    string lastCode = string.Empty;
 
                     for ( int attempts = 0; attempts <= _MaxAttempts; attempts++ )
                     {
@@ -233,8 +162,15 @@ namespace Rock.Model
                         if ( numericLength > 0 )
                         {
                             int codeLen = alphaNumericLength + alphaLength + numericLength;
-                            var lastCode = _todaysUsedCodes.Where( c => c.Length == codeLen ).OrderBy( c => c.Substring( alphaNumericLength + alphaLength ) ).LastOrDefault();
-                            numericCode = GetNextNumericCodeAsString( alphaNumericLength, alphaLength, numericLength, isRandomized, lastCode );// Need to change last code if this doesn't return a good number
+
+                            if ( lastCode.IsNullOrWhiteSpace() )
+                            {
+                                lastCode = _todaysUsedCodes.Where( c => c.Length == codeLen ).OrderBy( c => c.Substring( alphaNumericLength + alphaLength ) ).LastOrDefault();
+                            }
+
+                            numericCode = GetNextNumericCodeAsString( alphaNumericLength, alphaLength, numericLength, isRandomized, lastCode );
+
+
                         }
 
                         code = alphaNumericCode + alphaCode + numericCode;
@@ -242,6 +178,7 @@ namespace Rock.Model
                         // Check if code is already in use or contains bad unallowed strings.
                         if ( noGood.Any( s => code.Contains( s ) ) || _todaysUsedCodes.Contains( code ) )
                         {
+                            lastCode = numericCode;
                             alphaNumericCode = string.Empty;
                             alphaCode = string.Empty;
                             numericCode = string.Empty;
@@ -254,6 +191,7 @@ namespace Rock.Model
                         {
                             if ( service.IsCodeAlreadyInUse( code ) )
                             {
+                                lastCode = numericCode;
                                 alphaNumericCode = string.Empty;
                                 alphaCode = string.Empty;
                                 numericCode = string.Empty;
@@ -299,7 +237,7 @@ namespace Rock.Model
             {
                 numericCode = GenerateRandomNumericCode( numericLength );
 
-                // #2877, use contains to prevent leading zeros bypassing a match for 666
+                // Leaving the noGood check here because it is possible that this method used outside of GetNew().
                 while ( noGood.Any( s => numericCode.Contains( s ) ) || _todaysUsedCodes.Any( c => c.EndsWith( numericCode ) ) )
                 {
                     attempts++;
