@@ -305,7 +305,7 @@ namespace Rock.Model
                     attempts++;
 
                     // We're only going to attempt this a million times...
-                    if ( attempts > 1000000 )
+                    if ( attempts > _MaxAttempts )
                     {
                         throw new TimeoutException( "Too many attempts to create a unique attendance code.  There is almost certainly a check-in system 'Security Code Length' configuration problem." );
                     }
@@ -319,13 +319,6 @@ namespace Rock.Model
                 {
                     var maxCode = lastCode.Substring( alphaNumericLength + alphaLength );
                     int nextCode = maxCode.AsInteger() + 1;
-
-                    // Let's just skip over this one...
-                    if ( nextCode.ToString().Contains( "666" ) )
-                    {
-                        nextCode += 1;
-                    }
-
                     numericCode = nextCode.ToString( "D" + numericLength );
                 }
                 else
