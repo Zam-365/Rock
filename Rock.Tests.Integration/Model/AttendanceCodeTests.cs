@@ -40,7 +40,7 @@ namespace Rock.Tests.Integration.Model
         [ClassInitialize]
         public static void ClassInitialize( TestContext testContext )
         {
-            //DatabaseTests.ResetDatabase();
+            DatabaseTests.ResetDatabase();
         }
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace Rock.Tests.Integration.Model
         [ClassCleanup]
         public static void ClassCleanup()
         {
-            //DatabaseTests.DeleteDatabase();
+            DatabaseTests.DeleteDatabase();
         }
 
         /// <summary>
@@ -59,7 +59,6 @@ namespace Rock.Tests.Integration.Model
         [TestCleanup]
         public void Cleanup()
         {
-            return;
             using ( var rockContext = new RockContext() )
             {
 
@@ -91,6 +90,52 @@ namespace Rock.Tests.Integration.Model
         #endregion
 
         #region Alpha-numeric codes
+
+        [Ignore("Sometimes with caching you have to throw out the first result.")]
+        [TestMethod]
+        public void RunTestThreeTimes()
+        {
+            for ( int i = 0; i < 3; i++ )
+            {
+                GenerateLotsOfCodes();
+            }
+        }
+
+        /// <summary>
+        /// Generates lots of codes to test performance.
+        /// </summary>
+        [Ignore("This is only for local testing.")]
+        [TestMethod]
+        public void GenerateLotsOfCodes()
+        {
+            int interations = 6000;
+            int alphaNumbericDigits = 0;
+            int alphaDigits = 0;
+            int numericDigits = 4;
+            bool isRandom = false;
+
+            var stopWatch = new System.Diagnostics.Stopwatch();
+            stopWatch.Start();
+
+            for ( int i = 0; i < interations; i++ )
+            {
+                AttendanceCodeService.GetNew( alphaNumbericDigits, alphaDigits, numericDigits, isRandom );
+            }
+
+            stopWatch.Stop();
+            System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.TextWriterTraceListener(Console.Out));
+            System.Diagnostics.Trace.WriteLine( $"New GetNew Method AlphaNumericDigits: {alphaNumbericDigits}, AlphaDigits: {alphaDigits}, NumericDigits: {numericDigits}, IsRandom: {isRandom}, Number of Codes Generated: {interations}. Total Time: {stopWatch.ElapsedMilliseconds} ms." );
+            ClearAttendanceService();
+            AttendanceCodeService.FlushTodaysCodes();
+        }
+
+        private void ClearAttendanceService()
+        {
+            using( var rockContext = new RockContext() )
+            {
+                rockContext.Database.ExecuteSqlCommand( "delete from AttendanceCode" );
+            }
+        }
 
         /// <summary>
         /// Verify that three character alpha-numeric codes are all good codes.
@@ -424,7 +469,7 @@ namespace Rock.Tests.Integration.Model
                 for ( int i = 0; i < 600; i++ )
                 {
                     attemptCombination = i;
-                    code = AttendanceCodeService.GetNewOld( 2, 0, 3, true );
+                    code = AttendanceCodeService.GetNew( 2, 0, 3, true );
                     codeList.Add( code.Code );
                 }
 
