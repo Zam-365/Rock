@@ -1,4 +1,5 @@
 ﻿Obsidian.Controls.RockDefinedTypePicker = {
+    name: 'RockDefinedTypePicker',
     components: {
         RockDropDownList: Obsidian.Elements.RockDropDownList
     },

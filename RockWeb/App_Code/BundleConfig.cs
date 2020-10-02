@@ -97,8 +97,11 @@ public class BundleConfig
             "~/Obsidian/Vendor/axios.js",
             "~/Obsidian/Vendor/vue.js",
             "~/Obsidian/init.js",
+            "~/Obsidian/Templates/*.js",
             "~/Obsidian/Elements/*.js",
             "~/Obsidian/Controls/*.js",
+            "~/Obsidian/Fields/*.js",
+            "~/Obsidian/Blocks/Crm/*.js",
             "~/Obsidian/Blocks/Security/*.js",
             "~/Obsidian/Blocks/Test/*.js" ) );
 

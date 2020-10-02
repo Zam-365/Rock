@@ -10,9 +10,11 @@
         isSuccessStatusCode: (statusCode) => statusCode && statusCode / 100 === 2
     };
 
+    Obsidian.Templates = {};
     Obsidian.Elements = {};
     Obsidian.Controls = {};
     Obsidian.Blocks = {};
+    Obsidian.Fields = {};
 
     Obsidian.initializeBlock = function (config) {
         new Vue({

@@ -16,11 +16,9 @@
 //
 
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
 using Rock.Blocks;
 using Rock.Mobile;
+using Rock.Obsidian.Util;
 
 namespace Rock.Obsidian.Blocks
 {
@@ -59,15 +57,8 @@ namespace Rock.Obsidian.Blocks
         /// <returns>
         /// A collection of string/object pairs.
         /// </returns>
-        public abstract object GetConfigurationValues();
-
-        /// <summary>
-        /// Gets the additional settings defined for this block instance.
-        /// </summary>
-        /// <returns>An AdditionalBlockSettings object.</returns>
-        public AdditionalBlockSettings GetAdditionalSettings()
-        {
-            return BlockCache?.AdditionalSettings.FromJsonOrNull<AdditionalBlockSettings>() ?? new AdditionalBlockSettings();
+        public virtual object GetConfigurationValues() {
+            return null;
         }
 
         /// <summary>
@@ -87,78 +78,12 @@ $@"<div id=""{rootElementId}""></div>
         rootElement: document.getElementById('{rootElementId}'),
         pageGuid: '{BlockCache.Page.Guid}',
         blockGuid: '{BlockCache.Guid}',
-        additionalSettingsJson: {ConvertObjectToJavaScript( GetAdditionalSettings() )},
-        configurationValuesJson: {ConvertObjectToJavaScript( GetConfigurationValues() )},
+        configurationValues: {JavaScript.ToJavaScriptObject( GetConfigurationValues() )},
     }});
 }})();
 </script>";
         }
 
         #endregion Methods
-
-        #region JavaScript Helpers
-
-        /// <summary>
-        /// Gets the javascript object literal.
-        /// </summary>
-        /// <param name="source">The source.</param>
-        /// <returns></returns>
-        private static string ConvertObjectToJavaScript( object source )
-        {
-            if ( source == null )
-            {
-                return "null";
-            }
-
-            var bindingFlags = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance;
-
-            var dictionary = source.GetType().GetProperties( bindingFlags ).ToDictionary
-            (
-                pi => pi.Name,
-                pi => pi.GetValue( source, null )
-            );
-
-            return ConvertDictionaryToJavaScript( dictionary );
-        }
-
-        /// <summary>
-        /// Gets the javascript object literal.
-        /// </summary>
-        /// <param name="dictionary">The dictionary.</param>
-        /// <returns></returns>
-        private static string ConvertDictionaryToJavaScript( IDictionary<string, object> dictionary )
-        {
-            if ( dictionary == null )
-            {
-                return "null";
-            }
-
-            var stringBuilder = new StringBuilder();
-            stringBuilder.Append( "{" );
-
-            var keyCount = dictionary.Keys.Count;
-            var index = 0;
-
-            foreach ( var key in dictionary.Keys )
-            {
-                var value = dictionary[key];
-                var isLast = index == ( keyCount - 1 );
-
-                stringBuilder.Append( $"'{key}': " );
-                stringBuilder.Append( value == null ? "null" : $"'{value.ToString()}'" );
-
-                if ( !isLast )
-                {
-                    stringBuilder.Append( "," );
-                }
-
-                index++;
-            }
-
-            stringBuilder.Append( "}" );
-            return stringBuilder.ToString();
-        }
-
-        #endregion JavaScript Helpers
     }
 }

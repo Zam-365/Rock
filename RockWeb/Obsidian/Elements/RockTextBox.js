@@ -1,4 +1,5 @@
 ﻿Obsidian.Elements.RockTextBox = {
+    name: 'RockTextBox',
     props: {
         value: {
             type: String,

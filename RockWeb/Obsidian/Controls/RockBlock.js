@@ -11,7 +11,8 @@
                 get: this.httpGet,
                 post: this.httpPost
             },
-            blockAction: this.blockAction
+            blockAction: this.blockAction,
+            configurationValues: this.config.configurationValues
         };
     },
     data() {
