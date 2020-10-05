@@ -161,6 +161,10 @@
     <Compile Include="Migrations\202010030017413_AddIndexOnAttendanceCode_IssueDateTime.Designer.cs">
       <DependentUpon>202010030017413_AddIndexOnAttendanceCode_IssueDateTime.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\202010051258263_AddIsDateRequiredToStepType.cs" />
+    <Compile Include="Migrations\202010051258263_AddIsDateRequiredToStepType.Designer.cs">
+      <DependentUpon>202010051258263_AddIsDateRequiredToStepType.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\Version 11.0\Version 1.11.0\202006231558281_PrayerRequestWorkflowAction.cs" />
     <Compile Include="Migrations\Version 11.0\Version 1.11.0\202006231558281_PrayerRequestWorkflowAction.Designer.cs">
       <DependentUpon>202006231558281_PrayerRequestWorkflowAction.cs</DependentUpon>
@@ -1481,6 +1485,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\202010030017413_AddIndexOnAttendanceCode_IssueDateTime.resx">
       <DependentUpon>202010030017413_AddIndexOnAttendanceCode_IssueDateTime.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\202010051258263_AddIsDateRequiredToStepType.resx">
+      <DependentUpon>202010051258263_AddIsDateRequiredToStepType.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\Version 11.0\Version 1.11.0\202006231558281_PrayerRequestWorkflowAction.resx">
       <DependentUpon>202006231558281_PrayerRequestWorkflowAction.cs</DependentUpon>
