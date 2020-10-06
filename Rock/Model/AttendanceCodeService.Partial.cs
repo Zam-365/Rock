@@ -27,8 +27,8 @@ namespace Rock.Model
     /// </summary>
     public partial class AttendanceCodeService
     {
-        private static readonly object _Obj = new object();
-        private static readonly Random _Random = new Random( Guid.NewGuid().GetHashCode() );
+        private static readonly object _obj = new object();
+        private static readonly Random _random = new Random( Guid.NewGuid().GetHashCode() );
         private static DateTime? _todaysDate = null;
         private static HashSet<string> _todaysUsedCodes = null;
 
@@ -37,22 +37,22 @@ namespace Rock.Model
         // it still typically takes less than 5000 attempts. However, if the number of
         // attempts jumps over 10,000 there is almost certainly a problem with someone's
         // check-in code configuration so we're going to stop after a million attempts.
-        private static readonly int _MaxAttempts = 1000000;
+        private static readonly int _maxAttempts = 1000000;
 
         /// <summary>
         /// An array of characters that can be used as a part of  <see cref="Rock.Model.AttendanceCode">AttendanceCodes</see>
         /// </summary>
-        private static readonly char[] _CodeCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z', '2', '4', '5', '6', '7', '8', '9' };
+        private static readonly char[] _codeCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z', '2', '4', '5', '6', '7', '8', '9' };
 
         /// <summary>
         /// An array of alpha characters that can be used as a part of  <see cref="Rock.Model.AttendanceCode">AttendanceCodes</see>
         /// </summary>
-        private static readonly char[] _AlphaCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z' };
+        private static readonly char[] _alphaCharacters = new char[] { 'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'X', 'Z' };
 
         /// <summary>
         /// An array of numeric characters that can be used as a part of  <see cref="Rock.Model.AttendanceCode">AttendanceCodes</see>
         /// </summary>
-        private static readonly char[] _NumericCharacters = new char[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+        private static readonly char[] _numericCharacters = new char[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
 
         /// <summary>
         /// A list of <see cref="System.String"/> values that are not allowable as attendance codes.
@@ -121,7 +121,7 @@ namespace Rock.Model
         /// <returns></returns>
         public static AttendanceCode GetNew( int alphaNumericLength, int alphaLength, int numericLength, bool isRandomized )
         {
-            lock ( _Obj )
+            lock ( _obj )
             {
                 using ( var rockContext = new Rock.Data.RockContext() )
                 {
@@ -142,9 +142,9 @@ namespace Rock.Model
                     string code = string.Empty;
                     string lastCode = string.Empty;
 
-                    for ( int attempts = 0; attempts <= _MaxAttempts; attempts++ )
+                    for ( int attempts = 0; attempts <= _maxAttempts; attempts++ )
                     {
-                        if ( attempts == _MaxAttempts )
+                        if ( attempts == _maxAttempts )
                         {
                             throw new TimeoutException( "Too many attempts to create a unique attendance code.  There is almost certainly a check-in system 'Security Code Length' configuration problem." );
                         }
@@ -243,7 +243,7 @@ namespace Rock.Model
                     attempts++;
 
                     // We're only going to attempt this a million times...
-                    if ( attempts > _MaxAttempts )
+                    if ( attempts > _maxAttempts )
                     {
                         throw new TimeoutException( "Too many attempts to create a unique attendance code.  There is almost certainly a check-in system 'Security Code Length' configuration problem." );
                     }
@@ -277,10 +277,10 @@ namespace Rock.Model
         {
             StringBuilder sb = new StringBuilder();
 
-            int poolSize = _CodeCharacters.Length;
+            int poolSize = _codeCharacters.Length;
             for ( int i = 0; i < length; i++ )
             {
-                sb.Append( _CodeCharacters[_Random.Next( poolSize )] );
+                sb.Append( _codeCharacters[_random.Next( poolSize )] );
             }
 
             return sb.ToString();
@@ -295,10 +295,10 @@ namespace Rock.Model
         {
             StringBuilder sb = new StringBuilder();
 
-            int poolSize = _AlphaCharacters.Length;
+            int poolSize = _alphaCharacters.Length;
             for ( int i = 0; i < length; i++ )
             {
-                sb.Append( _AlphaCharacters[_Random.Next( poolSize )] );
+                sb.Append( _alphaCharacters[_random.Next( poolSize )] );
             }
 
             return sb.ToString();
@@ -313,10 +313,10 @@ namespace Rock.Model
         {
             StringBuilder sb = new StringBuilder();
 
-            int poolSize = _NumericCharacters.Length;
+            int poolSize = _numericCharacters.Length;
             for ( int i = 0; i < length; i++ )
             {
-                sb.Append( _NumericCharacters[_Random.Next( poolSize )] );
+                sb.Append( _numericCharacters[_random.Next( poolSize )] );
             }
 
             return sb.ToString();
@@ -327,7 +327,7 @@ namespace Rock.Model
         /// </summary>
         public static void FlushTodaysCodes()
         {
-            lock ( _Obj )
+            lock ( _obj )
             {
                 _todaysUsedCodes = null;
             }
