@@ -249,8 +249,8 @@ namespace Rock.Web.UI.Controls
 
         #region Fields
 
-        private string _orgState = string.Empty;
-        private string _orgCountry = string.Empty;
+        private string _orgState = null;
+        private string _orgCountry = null;
 
         private DataEntryRequirementLevelSpecifier _AddressLine1Requirement = DataEntryRequirementLevelSpecifier.Optional;
         private DataEntryRequirementLevelSpecifier _AddressLine2Requirement = DataEntryRequirementLevelSpecifier.Optional;
@@ -636,16 +636,15 @@ namespace Rock.Web.UI.Controls
         public AddressControl()
             : base()
         {
-            Initialize();
-        }
-
-        private void Initialize()
-        {
             HelpBlock = new HelpBlock();
             WarningBlock = new WarningBlock();
 
+            // Prevent ViewState from being disabled by the container, because it is necessary for this control to operate correctly.
+            this.ViewStateMode = ViewStateMode.Enabled;
+
             // Default validation display mode to use the ValidationSummary control rather than inline.
-            ValidationDisplay = ValidatorDisplay.None;
+            this.ValidationDisplay = ValidatorDisplay.None;
+
         }
 
         #endregion
@@ -782,7 +781,6 @@ namespace Rock.Web.UI.Controls
             CustomValidator.CssClass = "validation-error help-inline";
             CustomValidator.Enabled = true;
             CustomValidator.Display = ValidatorDisplay.Dynamic;
-            CustomValidator.ValidationGroup = ValidationGroup;
 
             CustomValidator.ServerValidate += _addressRequirementsValidator_ServerValidate;
             Controls.Add( CustomValidator );
@@ -1069,6 +1067,11 @@ namespace Rock.Web.UI.Controls
             }
             else
             {
+                if ( string.IsNullOrWhiteSpace( selectedStateFromDownDrop ) )
+                {
+                    selectedStateFromDownDrop = GetDefaultState();
+                }
+
                 State = selectedStateFromDownDrop;
             }
 
@@ -1203,12 +1206,16 @@ namespace Rock.Web.UI.Controls
         /// </summary>
         private void SetOrganizationAddressDefaults()
         {
+            if ( _orgCountry != null )
+            {
+                return;
+            }
+
             var globalAttributesCache = GlobalAttributesCache.Get();
             _orgState = globalAttributesCache.OrganizationState;
             _orgCountry = globalAttributesCache.OrganizationCountry;
         }
 
-        
         /// <summary>
         /// Binds the countries data source to the selection control.
         /// </summary>
@@ -1259,14 +1266,13 @@ namespace Rock.Web.UI.Controls
 
             BindCountries();
 
-            if ( this.SetDefaultValues )
+            if ( string.IsNullOrEmpty( currentValue )
+                 && this.SetDefaultValues )
             {
-                _ddlCountry.SetValue( string.IsNullOrWhiteSpace( currentValue ) ? GetDefaultCountry() : currentValue );
+                currentValue = this.GetDefaultCountry();
             }
-            else
-            {
-                _ddlCountry.SelectedValue = "";
-            }
+
+            _ddlCountry.SelectedValue = currentValue;
         }
 
         /// <summary>
@@ -1331,11 +1337,7 @@ namespace Rock.Web.UI.Controls
                 _ddlState.DataSource = stateList;
                 _ddlState.DataBind();
 
-                // If the country selection is the same as the organization, also set the default state.
-                if ( _ddlCountry.SelectedValue == _orgCountry )
-                {
-                    _ddlState.SetValue( currentValue, _orgState );
-                }
+                _ddlState.SetValue( currentValue, GetDefaultState() );
             }
             else
             {
@@ -1353,7 +1355,18 @@ namespace Rock.Web.UI.Controls
         public string GetDefaultState()
         {
             SetOrganizationAddressDefaults();
-            return _orgState;
+
+            // Return the default state for the Organization if no Country is selected
+            // or the selected Country matches the Organization Address.
+            if ( string.IsNullOrWhiteSpace( this.Country )
+                 || this.Country == _orgCountry )
+            {
+                return _orgState;
+            }
+            else
+            {
+                return string.Empty;
+            }
         }
 
         /// <summary>
