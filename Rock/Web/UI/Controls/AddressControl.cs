@@ -21,6 +21,8 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 using Rock.Field.Types;
 using Rock.Web.Cache;
+using Rock.Model;
+using Rock.Data;
 
 namespace Rock.Web.UI.Controls
 {
@@ -214,7 +216,7 @@ namespace Rock.Web.UI.Controls
                 else
                 {
                     // The control must contain a valid address or nothing.
-                    return IsEmpty() || ( CustomValidator == null || CustomValidator.IsValid );
+                    return this.HasValue || ( CustomValidator == null || CustomValidator.IsValid );
                 }
             }
         }
@@ -234,14 +236,6 @@ namespace Rock.Web.UI.Controls
         /// The warning block.
         /// </value>
         public WarningBlock WarningBlock { get; set; }
-
-        /// <summary>
-        /// Gets or sets the custom validator.
-        /// </summary>
-        /// <value>
-        /// The custom validator.
-        /// </value>
-        public CustomValidator CustomValidator { get; set; }
 
         /// <summary>
         /// Gets or sets the required field validator.
@@ -286,6 +280,14 @@ namespace Rock.Web.UI.Controls
         #endregion
 
         #region Properties
+
+        /// <summary>
+        /// Gets or sets the custom validator.
+        /// </summary>
+        /// <value>
+        /// The custom validator.
+        /// </value>
+        public CustomValidator CustomValidator { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the Address Line 1 field.
@@ -542,6 +544,31 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
+        /// Gets or sets a value indicating if address fields should be set to default values when the control is first shown.
+        /// </summary>
+        /// <value>
+        /// <c>true</c> if default values should be set; otherwise, <c>false</c>.
+        /// </value>
+        public bool SetDefaultValues
+        {
+            get
+            {
+                return ViewState["SetDefaultValues"] as bool? ?? true;
+            }
+
+            set
+            {
+                if ( ( ViewState["SetDefaultValues"] as bool? ?? true ) != value )
+                {
+                    EnsureChildControls();
+                    RebindCountries();
+                }
+
+                ViewState["SetDefaultValues"] = value;
+            }
+        }
+
+        /// <summary>
         /// Gets or sets the validation group.
         /// </summary>
         /// <value>
@@ -558,7 +585,14 @@ namespace Rock.Web.UI.Controls
             set
             {
                 EnsureChildControls();
-                this.CustomValidator.ValidationGroup = value;
+
+                CustomValidator.ValidationGroup = value;
+
+                if ( this.RequiredFieldValidator != null )
+                {
+                    this.RequiredFieldValidator.ValidationGroup = value;
+                }
+
                 _tbStreet1.ValidationGroup = value;
                 _tbStreet2.ValidationGroup = value;
                 _tbCity.ValidationGroup = value;
@@ -566,6 +600,29 @@ namespace Rock.Web.UI.Controls
                 _tbState.ValidationGroup = value;
                 _ddlState.ValidationGroup = value;
                 _ddlCountry.ValidationGroup = value;
+            }
+        }
+
+        /// <summary>
+        /// Sets the validation message display mode for the control.
+        /// </summary>
+        public ValidatorDisplay ValidationDisplay
+        {
+            get
+            {
+                // All validators use the same setting, so return the value of an arbitrary validator.
+                return CustomValidator.Display;
+            }
+            set
+            {
+                EnsureChildControls();
+
+                CustomValidator.Display = value;
+
+                if ( this.RequiredFieldValidator != null )
+                {
+                    this.RequiredFieldValidator.Display = value;
+                }
             }
         }
 
@@ -579,11 +636,16 @@ namespace Rock.Web.UI.Controls
         public AddressControl()
             : base()
         {
-            CustomValidator = new CustomValidator();
-            CustomValidator.ValidationGroup = this.ValidationGroup;
+            Initialize();
+        }
 
+        private void Initialize()
+        {
             HelpBlock = new HelpBlock();
             WarningBlock = new WarningBlock();
+
+            // Default validation display mode to use the ValidationSummary control rather than inline.
+            ValidationDisplay = ValidatorDisplay.None;
         }
 
         #endregion
@@ -625,7 +687,8 @@ namespace Rock.Web.UI.Controls
             }
 
             // If no country is selected, set default values for the control.
-            if ( string.IsNullOrEmpty(selectedCountry) )
+            if ( string.IsNullOrEmpty(selectedCountry)
+                 && this.SetDefaultValues )
             {
                 selectedCountry = _orgCountry;
 
@@ -716,12 +779,43 @@ namespace Rock.Web.UI.Controls
             CustomValidator = new CustomValidator();
             CustomValidator.ID = this.ID + "_cfv";
             CustomValidator.ClientValidationFunction = "Rock.controls.addressControl.clientValidate";
-            CustomValidator.ErrorMessage = ( this.Label != string.Empty ? this.Label : "Address" ) + " is required.";
             CustomValidator.CssClass = "validation-error help-inline";
             CustomValidator.Enabled = true;
             CustomValidator.Display = ValidatorDisplay.Dynamic;
             CustomValidator.ValidationGroup = ValidationGroup;
+
+            CustomValidator.ServerValidate += _addressRequirementsValidator_ServerValidate;
             Controls.Add( CustomValidator );
+        }
+
+        private void _addressRequirementsValidator_ServerValidate( object source, ServerValidateEventArgs args )
+        {
+            if ( !this.HasValue
+                 && !this.Required )
+            {
+                return;
+            }
+
+            var editedLocation = new Location();
+
+            this.GetValues( editedLocation );
+
+            var locationService = new LocationService( new RockContext() );
+
+            string validationMessage;
+
+            var isValid = locationService.ValidateAddressRequirements( editedLocation, out validationMessage );
+
+            if ( !isValid )
+            {
+                var _addressRequirementsValidator = source as CustomValidator;
+
+                _addressRequirementsValidator.ErrorMessage = validationMessage;
+
+                args.IsValid = false;
+
+                return;
+            }
         }
 
         /// <summary>
@@ -1019,26 +1113,29 @@ namespace Rock.Web.UI.Controls
         /// Returns a flag indicating if the control contains any non-default values.
         /// </summary>
         /// <returns>True if any field contains a non-default value.</returns>
-        private bool IsEmpty()
+        public bool HasValue
         {
-            // Get field values, nullifying any fields that are not available for the selected country.
-            var street1 = GetLocationFieldValue( this.Street1, _AddressLine1Requirement );
-            var street2 = GetLocationFieldValue( this.Street2, _AddressLine2Requirement );
-            var city = GetLocationFieldValue( this.City, _CityRequirement );
-            var county = GetLocationFieldValue( this.County, _LocalityRequirement );
-            var state = GetLocationFieldValue( this.State, _StateRequirement );
-            var postalCode = GetLocationFieldValue( this.PostalCode, _PostalCodeRequirement );
-            var country = this.Country;
+            get
+            {
+                // Get field values, nullifying any fields that are not available for the selected country.
+                var street1 = GetLocationFieldValue( this.Street1, _AddressLine1Requirement );
+                var street2 = GetLocationFieldValue( this.Street2, _AddressLine2Requirement );
+                var city = GetLocationFieldValue( this.City, _CityRequirement );
+                var county = GetLocationFieldValue( this.County, _LocalityRequirement );
+                var state = GetLocationFieldValue( this.State, _StateRequirement );
+                var postalCode = GetLocationFieldValue( this.PostalCode, _PostalCodeRequirement );
+                var country = this.Country;
 
-            var isEmpty = string.IsNullOrWhiteSpace( street1 )
-                     && string.IsNullOrWhiteSpace( street2 )
-                     && string.IsNullOrWhiteSpace( city )
-                     && string.IsNullOrWhiteSpace( county )
-                     && string.IsNullOrWhiteSpace( postalCode )
-                     && ( string.IsNullOrWhiteSpace( state ) || state == this.GetDefaultState() )
-                     && ( string.IsNullOrWhiteSpace( country ) || country == this.GetDefaultCountry() );
+                var isEmpty = string.IsNullOrWhiteSpace( street1 )
+                         && string.IsNullOrWhiteSpace( street2 )
+                         && string.IsNullOrWhiteSpace( city )
+                         && string.IsNullOrWhiteSpace( county )
+                         && string.IsNullOrWhiteSpace( postalCode )
+                         && ( string.IsNullOrWhiteSpace( state ) || state == this.GetDefaultState() )
+                         && ( string.IsNullOrWhiteSpace( country ) || country == this.GetDefaultCountry() );
 
-            return isEmpty;
+                return !isEmpty;
+            }
         }
 
         /// <summary>
@@ -1052,18 +1149,7 @@ namespace Rock.Web.UI.Controls
                 return;
             }
 
-            if ( IsEmpty() )
-            {
-                // No non-default values have been entered, so return an empty location.
-                location.Country = null;
-                location.Street1 = null;
-                location.Street2 = null;
-                location.City = null;
-                location.County = null;
-                location.State = null;
-                location.PostalCode = null;
-            }
-            else
+            if ( this.HasValue )
             {
                 // Get field values, nullifying any fields that are not available for the selected country.
                 var street1 = GetLocationFieldValue( this.Street1, _AddressLine1Requirement );
@@ -1075,14 +1161,23 @@ namespace Rock.Web.UI.Controls
 
                 location.Country = this.Country;
 
-                // Get field values masked by requirements.
-                // If the Country field has been modified for this Location, nullify fields that are no longer available.
                 location.Street1 = street1;
                 location.Street2 = street2;
                 location.City = city;
                 location.County = county;
                 location.State = state;
                 location.PostalCode = postalCode;
+            }
+            else
+            {
+                // No non-default values have been entered, so return an empty location.
+                location.Country = null;
+                location.Street1 = null;
+                location.Street2 = null;
+                location.City = null;
+                location.County = null;
+                location.State = null;
+                location.PostalCode = null;
             }
         }
 
@@ -1096,7 +1191,7 @@ namespace Rock.Web.UI.Controls
         {
             if ( requirementLevel == DataEntryRequirementLevelSpecifier.Unavailable )
             {
-                // If the field is unavailable, do not store the value.
+                // If the field is unavailable, mask the value.
                 return null;
             }
 
@@ -1164,9 +1259,14 @@ namespace Rock.Web.UI.Controls
 
             BindCountries();
 
-            string defaultCountryCode = GetDefaultCountry();
-
-            _ddlCountry.SetValue( string.IsNullOrWhiteSpace( currentValue ) ? defaultCountryCode : currentValue );
+            if ( this.SetDefaultValues )
+            {
+                _ddlCountry.SetValue( string.IsNullOrWhiteSpace( currentValue ) ? GetDefaultCountry() : currentValue );
+            }
+            else
+            {
+                _ddlCountry.SelectedValue = "";
+            }
         }
 
         /// <summary>
@@ -1231,7 +1331,11 @@ namespace Rock.Web.UI.Controls
                 _ddlState.DataSource = stateList;
                 _ddlState.DataBind();
 
-                _ddlState.SetValue( currentValue, _orgState );
+                // If the country selection is the same as the organization, also set the default state.
+                if ( _ddlCountry.SelectedValue == _orgCountry )
+                {
+                    _ddlState.SetValue( currentValue, _orgState );
+                }
             }
             else
             {
